@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SolarEnergyPOC.Interfaces;
+using System;
 
 namespace SolarEnergyPOC.Services
 {
@@ -12,7 +13,7 @@ namespace SolarEnergyPOC.Services
     /// 
     /// It intentionally avoids ray tracing or mesh intersection.
     /// </summary>
-    public class ShadingService
+    public class ShadingService : IShadingService
     {
         // Typical row spacing for utility-scale plants (meters)
         private const double RowSpacingMeters = 6.0;

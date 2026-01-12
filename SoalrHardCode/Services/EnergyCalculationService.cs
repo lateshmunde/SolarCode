@@ -1,4 +1,5 @@
 ﻿using SolarEnergyPOC.Domain;
+using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Services
 {
@@ -9,7 +10,7 @@ namespace SolarEnergyPOC.Services
     /// This service encapsulates all energy physics logic
     /// and keeps the rest of the system clean.
     /// </summary>
-    public class EnergyCalculationService
+    public class EnergyCalculationService : IEnergyCalculationService
     {
         private const double TemperatureCoefficient = -0.004;
         private const double NOCT = 45;

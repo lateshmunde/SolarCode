@@ -1,4 +1,6 @@
-﻿namespace SolarEnergyPOC.Services
+﻿using SolarEnergyPOC.Interfaces;
+
+namespace SolarEnergyPOC.Services
 {
     /// <summary>
     /// Provides solar position information.
@@ -11,7 +13,7 @@
     /// - SPA / NREL models
     /// - External solar libraries
     /// </summary>
-    public class SunPositionService
+    public class SunPositionService : ISunPositionService
     {
         /// <summary>
         /// Returns approximate solar altitude angle (degrees) for a given hour.

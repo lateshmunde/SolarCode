@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using SolarEnergyPOC.Domain;
+﻿using SolarEnergyPOC.Domain;
+using SolarEnergyPOC.Interfaces;
+using System.Collections.Generic;
 
 namespace SolarEnergyPOC.Data
 {
@@ -15,7 +16,7 @@ namespace SolarEnergyPOC.Data
     /// - API-based repository
     /// - File-based repository (CSV / JSON)
     /// </summary>
-    public class HardcodedIrradianceRepository
+    public class HardcodedIrradianceRepository : IIrradianceRepository
     {
         public IEnumerable<SolarIrradiance> GetHourlyData()
         {
