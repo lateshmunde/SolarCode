@@ -4,28 +4,19 @@ using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Data;
 using SolarEnergyPOC.Interfaces;
 using SolarEnergyPOC.Services;
-/// <summary>
-/// Entry point and orchestration layer.
-/// 
-/// This file wires together domain, data, and services.
-/// No business logic should live here.
-/// </summary>
+
 namespace SolarEnergyPOC
 {
     class Program
     {
         static void Main()
         {
-            // -----------------------------
-            // 1. Create Plant Geometry
-            // -----------------------------
+            var location = new Location(23.0, 72.0);
+            int year = 2023;
 
-            var location = new Location(23.0, 72.0); // Gujarat
-
-            // Assume 10 MWp plant using 540 Wp modules
-            int panelCount = 18519; // 10,000 kW / 0.54 kW
-
+            int panelCount = 18519;
             var panels = new List<SolarPanel>();
+
             for (int i = 0; i < panelCount; i++)
             {
                 panels.Add(new SolarPanel(
@@ -38,56 +29,39 @@ namespace SolarEnergyPOC
 
             var plant = new Plant(location, panels);
 
-            // -----------------------------
-            // 2. Wire Services (Interfaces)
-            // -----------------------------
-
-            //IIrradianceRepository irradianceRepo =
-            //    new HardcodedIrradianceRepository();
-
-            // Replace hardcoded repository
             IIrradianceRepository irradianceRepo =
-                new NasaPowerIrradianceRepository(location, year: 2023);
+                new NasaPowerIrradianceRepository(location, year);
 
+            var plantEnergyService = new PlantEnergyService(
+                new SunPositionService(),
+                new ShadingService(),
+                new EnergyCalculationService()
+            );
 
-            ISunPositionService sunService =
-                new SunPositionService();
-
-            IShadingService shadingService =
-                new ShadingService();
-
-            IEnergyCalculationService energyService =
-                new EnergyCalculationService();
-
-            var plantEnergyService =
-                new PlantEnergyService(
-                    sunService,
-                    shadingService,
-                    energyService
-                );
-
-            // -----------------------------
-            // 3. Energy Calculations
-            // -----------------------------
-
-            double dailyEnergy =
-                plantEnergyService.CalculateDailyEnergy(
+            var monthlyResults =
+                plantEnergyService.CalculateMonthlyEnergy(
                     plant,
-                    irradianceRepo.GetHourlyData()
+                    irradianceRepo.GetHourlyData(),
+                    year
                 );
 
             double yearlyEnergy =
-                plantEnergyService.ScaleDailyToYearly(dailyEnergy);
+                plantEnergyService.CalculateYearlyEnergy(monthlyResults);
 
-            // -----------------------------
-            // 4. Reporting
-            // -----------------------------
+            Console.WriteLine("Monthly Energy Report");
+            Console.WriteLine("--------------------------------");
 
-            Console.WriteLine("Solar Plant Energy Report");
-            Console.WriteLine("----------------------------------");
-            Console.WriteLine($"DC Capacity      : {plant.TotalDcCapacityKW / 1000:F2} MWp");
-            Console.WriteLine($"Daily Energy     : {dailyEnergy / 1000:F2} MWh");
-            Console.WriteLine($"Annual Energy    : {yearlyEnergy / 1_000_000:F2} GWh");
+            foreach (var month in monthlyResults)
+            {
+                Console.WriteLine(
+                    $"Month {month.Month:00} : {month.EnergyKWh / 1_000:F2} MWh"
+                );
+            }
+
+            Console.WriteLine("--------------------------------");
+            Console.WriteLine(
+                $"Annual Energy : {yearlyEnergy / 1_000_000:F2} GWh"
+            );
         }
     }
 }
