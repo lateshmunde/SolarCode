@@ -7,17 +7,6 @@ using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Data
 {
-    /// <summary>
-    /// Retrieves hourly solar irradiance data from NASA POWER API.
-    /// 
-    /// Characteristics:
-    /// - Free
-    /// - Commercially usable
-    /// - No API key required
-    /// - Deterministic (historical data)
-    /// 
-    /// This repository returns domain-level SolarIrradiance objects.
-    /// </summary>
     public class NasaPowerIrradianceRepository : IIrradianceRepository
     {
         private readonly Location _location;
@@ -43,33 +32,30 @@ namespace SolarEnergyPOC.Data
                 $"&end={_year}" +
                 $"&format=JSON";
 
-            var response = client.GetStringAsync(url).Result;
+            var json = client.GetStringAsync(url).Result;
+            var response = JsonSerializer.Deserialize<NasaPowerResponse>(json);
 
-            var nasaResponse =
-                JsonSerializer.Deserialize<NasaPowerResponse>(response);
-
-            var ghiData =
-                nasaResponse.Properties.Parameter["ALLSKY_SFC_SW_DWN"];
-            var dniData =
-                nasaResponse.Properties.Parameter["ALLSKY_SFC_SW_DNI"];
-            var dhiData =
-                nasaResponse.Properties.Parameter["ALLSKY_SFC_SW_DIFF"];
-            var tempData =
-                nasaResponse.Properties.Parameter["T2M"];
+            var ghi = response.Properties.Parameter["ALLSKY_SFC_SW_DWN"];
+            var dni = response.Properties.Parameter["ALLSKY_SFC_SW_DNI"];
+            var dhi = response.Properties.Parameter["ALLSKY_SFC_SW_DIFF"];
+            var temp = response.Properties.Parameter["T2M"];
 
             var results = new List<SolarIrradiance>();
 
-            foreach (var timestamp in ghiData.Keys)
+            foreach (var kv in ghi)
             {
-                // Timestamp format: YYYYMMDDHH
-                int hour = int.Parse(timestamp.Substring(8, 2));
+                // NASA timestamps are UTC → MUST be marked as UTC
+                var utcTime = DateTime.SpecifyKind(
+                    DateTime.ParseExact(kv.Key, "yyyyMMddHH", null),
+                    DateTimeKind.Utc
+                );
 
                 results.Add(new SolarIrradiance(
-                    hour: hour,
-                    ghi: ghiData[timestamp],
-                    dni: dniData[timestamp],
-                    dhi: dhiData[timestamp],
-                    ambientTempC: tempData[timestamp]
+                    utcTime,
+                    ghi[kv.Key],
+                    dni[kv.Key],
+                    dhi[kv.Key],
+                    temp[kv.Key]
                 ));
             }
 

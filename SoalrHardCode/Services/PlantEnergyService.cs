@@ -1,76 +1,110 @@
-﻿using SolarEnergyPOC.Domain;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Services
 {
-    /// <summary>
-    /// Calculates energy output at the plant level.
-    /// 
-    /// Responsibilities:
-    /// - Aggregate panel-level energy
-    /// - Scale hourly data to annual values
-    /// - Keep Program.cs free from business logic
-    /// </summary>
     public class PlantEnergyService
     {
-        private readonly ISunPositionService _sunService;
-        private readonly IShadingService _shadingService;
-        private readonly IEnergyCalculationService _energyService;
+        private readonly ISunPositionService _sun;
+        private readonly IShadingService _shading;
+        private readonly IPlaneOfArrayIrradianceService _poa;
+        private readonly IEnergyCalculationService _energy;
 
         public PlantEnergyService(
-            ISunPositionService sunService,
-            IShadingService shadingService,
-            IEnergyCalculationService energyService)
+            ISunPositionService sun,
+            IShadingService shading,
+            IPlaneOfArrayIrradianceService poa,
+            IEnergyCalculationService energy)
         {
-            _sunService = sunService;
-            _shadingService = shadingService;
-            _energyService = energyService;
+            _sun = sun;
+            _shading = shading;
+            _poa = poa;
+            _energy = energy;
         }
 
-        /// <summary>
-        /// Calculates total daily energy for the plant (kWh).
-        /// </summary>
-        public double CalculateDailyEnergy(
-            Plant plant,
-            IEnumerable<SolarIrradiance> hourlyData)
+        // ------------------------------------
+        // HOURLY → PLANT ENERGY (kWh)
+        // ------------------------------------
+        private double CalculateHourEnergy(
+            IrradianceInput irr,
+            PanelGeometry geometry)
         {
-            double dailyEnergy = 0;
+            var sun = _sun.GetSunPosition(irr.Timestamp);
+            if (!sun.IsSunUp)
+                return 0;
 
-            foreach (var irradiance in hourlyData)
+            var shadingFactor =
+                _shading.CalculateShadingFactor(sun, geometry);
+
+            var poa =
+                _poa.CalculatePOA(
+                    irr, sun, geometry, shadingFactor);
+
+            return _energy.CalculateFromPOA(poa);
+        }
+
+        // ------------------------------------
+        // MONTHLY AGGREGATION
+        // ------------------------------------
+        public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergy(
+            IEnumerable<IrradianceInput> data,
+            PanelGeometry geometry,
+            int panelCount)
+        {
+            var grouped =
+                data.GroupBy(d => d.Timestamp.Month);
+
+            var results = new List<MonthlyEnergyResult>();
+
+            foreach (var monthGroup in grouped)
             {
-                double sunAltitude =
-                    _sunService.GetSolarAltitudeDeg(irradiance.Hour);
+                double monthlyEnergy = 0;
 
-                foreach (var panel in plant.Panels)
+                foreach (var hour in monthGroup)
                 {
-                    double shadingLoss =
-                        _shadingService.GetShadingLoss(
-                            panel.HeightMeters,
-                            sunAltitude
-                        );
-
-                    dailyEnergy += _energyService.CalculateHourlyEnergy(
-                        panel,
-                        irradiance,
-                        sunAltitude,
-                        shadingLoss
-                    );
+                    monthlyEnergy +=
+                        CalculateHourEnergy(hour, geometry);
                 }
+
+                monthlyEnergy *= panelCount;
+
+                int daysInMonth =
+                    DateTime.DaysInMonth(
+                        monthGroup.First().Timestamp.Year,
+                        monthGroup.Key);
+
+                double plantCapacityKW = panelCount * 0.54;
+
+                double specificYield =
+                    monthlyEnergy / plantCapacityKW;
+
+                double cuf =
+                    monthlyEnergy /
+                    (plantCapacityKW * 24 * daysInMonth);
+
+                results.Add(
+                    new MonthlyEnergyResult(
+                        monthGroup.Key,
+                        monthlyEnergy,
+                        specificYield,
+                        cuf));
             }
 
-            return dailyEnergy;
+            return results
+                .OrderBy(r => r.Month)
+                .ToList();
         }
 
-        /// <summary>
-        /// Scales daily energy to yearly energy.
-        /// 
-        /// This assumes the provided day is a
-        /// representative average day.
-        /// </summary>
-        public double ScaleDailyToYearly(double dailyEnergy)
+        // ------------------------------------
+        // YEARLY ENERGY (from monthly)
+        // ------------------------------------
+        public double CalculateYearlyEnergy(
+            IEnumerable<MonthlyEnergyResult> monthly)
         {
-            const int DaysInYear = 365;
-            return dailyEnergy * DaysInYear;
+            return monthly.Sum(m => m.EnergyKWh);
         }
     }
 }

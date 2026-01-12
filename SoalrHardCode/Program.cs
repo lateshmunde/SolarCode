@@ -1,93 +1,144 @@
 ﻿using System;
-using System.Collections.Generic;
-using SolarEnergyPOC.Domain;
+using System.IO;
+using System.Linq;
 using SolarEnergyPOC.Data;
-using SolarEnergyPOC.Interfaces;
+using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Services;
-/// <summary>
-/// Entry point and orchestration layer.
-/// 
-/// This file wires together domain, data, and services.
-/// No business logic should live here.
-/// </summary>
+
 namespace SolarEnergyPOC
 {
     class Program
     {
-        static void Main()
+        static void Main(string[] args)
         {
-            // -----------------------------
-            // 1. Create Plant Geometry
-            // -----------------------------
+            Console.WriteLine("===============================================");
+            Console.WriteLine("   SOLAR ENERGY MODELLING – MONTHLY REPORT");
+            Console.WriteLine("   Data Source : NASA POWER");
+            Console.WriteLine("===============================================");
 
-            var location = new Location(23.0, 72.0); // Gujarat
+            // -------------------------------------------------
+            // 1️⃣ INPUT CONFIGURATION
+            // -------------------------------------------------
 
-            // Assume 10 MWp plant using 540 Wp modules
-            int panelCount = 18519; // 10,000 kW / 0.54 kW
+            int year = 2022;
+            var location = new Location(23.0, 72.0); // Ahmedabad, Gujarat
 
-            var panels = new List<SolarPanel>();
-            for (int i = 0; i < panelCount; i++)
+            var panelGeometry = new PanelGeometry
             {
-                panels.Add(new SolarPanel(
-                    tiltDeg: 25,
-                    azimuthDeg: 180,
-                    heightMeters: 2.5,
-                    ratedPowerKW: 0.54
-                ));
+                Tilt = 25,
+                Azimuth = 180,
+                Albedo = 0.30
+            };
+
+            int panelCount = 18519; // fixed as requested (~10 MWp)
+
+            double plantCapacityKW = panelCount * 0.54;
+
+            Console.WriteLine("\n--- INPUT CONFIGURATION ---");
+            Console.WriteLine($"Year            : {year}");
+            Console.WriteLine($"Latitude        : {location.Latitude}");
+            Console.WriteLine($"Longitude       : {location.Longitude}");
+            Console.WriteLine($"Panel Tilt      : {panelGeometry.Tilt}°");
+            Console.WriteLine($"Panel Azimuth   : {panelGeometry.Azimuth}°");
+            Console.WriteLine($"Ground Albedo   : {panelGeometry.Albedo}");
+            Console.WriteLine($"Panel Count     : {panelCount}");
+            Console.WriteLine($"Plant Capacity : {plantCapacityKW / 1000:F2} MWp");
+
+            // -------------------------------------------------
+            // 2️⃣ LOAD NASA POWER DATA
+            // -------------------------------------------------
+
+            Console.WriteLine("\n--- LOADING NASA POWER DATA ---");
+
+            var irradianceRepo =
+                new NasaPowerIrradianceRepository(location, year);
+
+            var solarData =
+                irradianceRepo.GetHourlyData().ToList();
+
+            Console.WriteLine($"Total Hours Retrieved : {solarData.Count}");
+
+            if (solarData.Count == 0)
+            {
+                Console.WriteLine("❌ ERROR: No data received from NASA POWER.");
+                return;
             }
 
-            var plant = new Plant(location, panels);
+            // -------------------------------------------------
+            // 3️⃣ ADAPT DATA (UTC → IST handled internally)
+            // -------------------------------------------------
 
-            // -----------------------------
-            // 2. Wire Services (Interfaces)
-            // -----------------------------
+            var irradianceInputs =
+                solarData
+                .Select(SolarIrradianceAdapter.ToInput)
+                .ToList();
 
-            //IIrradianceRepository irradianceRepo =
-            //    new HardcodedIrradianceRepository();
+            // -------------------------------------------------
+            // 4️⃣ INITIALIZE SERVICES
+            // -------------------------------------------------
 
-            // Replace hardcoded repository
-            IIrradianceRepository irradianceRepo =
-                new NasaPowerIrradianceRepository(location, year: 2023);
-
-
-            ISunPositionService sunService =
-                new SunPositionService();
-
-            IShadingService shadingService =
-                new ShadingService();
-
-            IEnergyCalculationService energyService =
-                new EnergyCalculationService();
+            var sunService = new SunPositionService();
+            var shadingService = new ShadingService();
+            var poaService = new PlaneOfArrayIrradianceService();
+            var energyService = new EnergyCalculationService();
 
             var plantEnergyService =
                 new PlantEnergyService(
                     sunService,
                     shadingService,
-                    energyService
-                );
+                    poaService,
+                    energyService);
 
-            // -----------------------------
-            // 3. Energy Calculations
-            // -----------------------------
+            // -------------------------------------------------
+            // 5️⃣ MONTHLY ENERGY AGGREGATION
+            // -------------------------------------------------
 
-            double dailyEnergy =
-                plantEnergyService.CalculateDailyEnergy(
-                    plant,
-                    irradianceRepo.GetHourlyData()
-                );
+            Console.WriteLine("\n--- RUNNING MONTHLY ENERGY AGGREGATION ---");
 
-            double yearlyEnergy =
-                plantEnergyService.ScaleDailyToYearly(dailyEnergy);
+            var monthlyResults =
+                plantEnergyService.CalculateMonthlyEnergy(
+                    irradianceInputs,
+                    panelGeometry,
+                    panelCount);
 
-            // -----------------------------
-            // 4. Reporting
-            // -----------------------------
+            double yearlyEnergyKWh =
+                plantEnergyService.CalculateYearlyEnergy(monthlyResults);
 
-            Console.WriteLine("Solar Plant Energy Report");
-            Console.WriteLine("----------------------------------");
-            Console.WriteLine($"DC Capacity      : {plant.TotalDcCapacityKW / 1000:F2} MWp");
-            Console.WriteLine($"Daily Energy     : {dailyEnergy / 1000:F2} MWh");
-            Console.WriteLine($"Annual Energy    : {yearlyEnergy / 1_000_000:F2} GWh");
+            // -------------------------------------------------
+            // 6️⃣ MONTHLY REPORT (GWh)
+            // -------------------------------------------------
+
+            Console.WriteLine("\n--- MONTHLY ENERGY REPORT ---");
+            Console.WriteLine("Month | Energy (GWh) | kWh/kWp | CUF (%)");
+            Console.WriteLine("----------------------------------------");
+
+            foreach (var m in monthlyResults)
+            {
+                Console.WriteLine(
+                    $"{m.Month,5} | " +
+                    $"{m.EnergyKWh / 1_000_000,11:F3} | " +
+                    $"{m.SpecificYield,7:F0} | " +
+                    $"{m.CUF * 100,6:F2}");
+            }
+
+            // -------------------------------------------------
+            // 7️⃣ YEARLY SUMMARY (GWh)
+            // -------------------------------------------------
+
+            double yearlyEnergyGWh = yearlyEnergyKWh / 1_000_000;
+            double yearlySpecificYield =
+                yearlyEnergyKWh / plantCapacityKW;
+            double yearlyCUF =
+                yearlyEnergyKWh / (plantCapacityKW * 8760);
+
+            Console.WriteLine("\n--- YEARLY SUMMARY ---");
+            Console.WriteLine($"Yearly Energy     : {yearlyEnergyGWh:F3} GWh");
+            Console.WriteLine($"Specific Yield    : {yearlySpecificYield:F0} kWh/kWp/year");
+            Console.WriteLine($"CUF               : {yearlyCUF * 100:F2} %");
+
+            Console.WriteLine("\n===============================================");
+            Console.WriteLine(" Solar Energy Simulation Completed Successfully");
+            Console.WriteLine("===============================================");
         }
     }
 }

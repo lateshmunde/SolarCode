@@ -1,11 +1,12 @@
-﻿namespace SolarEnergyPOC.Interfaces
+﻿using SolarEnergyPOC.Domain;
+
+namespace SolarEnergyPOC.Interfaces
 {
-    /// <summary>
-    /// Contract for computing shading losses.
-    /// Enables multiple shading strategies (row, terrain, objects).
-    /// </summary>
     public interface IShadingService
     {
-        double GetShadingLoss(double panelHeight, double sunAltitudeDeg);
+        double CalculateShadingFactor(
+            SunPosition sunPosition,
+            PanelGeometry panelGeometry
+        );
     }
 }
