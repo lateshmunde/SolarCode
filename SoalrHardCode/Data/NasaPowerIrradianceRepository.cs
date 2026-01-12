@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using SolarEnergyPOC.Domain;
@@ -7,21 +9,12 @@ using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Data
 {
-    /// <summary>
-    /// Retrieves hourly solar irradiance data from NASA POWER API.
-    /// 
-    /// Characteristics:
-    /// - Free
-    /// - Commercially usable
-    /// - No API key required
-    /// - Deterministic (historical data)
-    /// 
-    /// This repository returns domain-level SolarIrradiance objects.
-    /// </summary>
     public class NasaPowerIrradianceRepository : IIrradianceRepository
     {
         private readonly Location _location;
         private readonly int _year;
+        private readonly TimeZoneInfo _ist =
+            TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "IST", "IST");
 
         public NasaPowerIrradianceRepository(Location location, int year)
         {
@@ -43,34 +36,38 @@ namespace SolarEnergyPOC.Data
                 $"&end={_year}" +
                 $"&format=JSON";
 
-            var response = client.GetStringAsync(url).Result;
+            var json = client.GetStringAsync(url).Result;
+            var response = JsonSerializer.Deserialize<NasaPowerResponse>(json);
 
-            var nasaResponse =
-                JsonSerializer.Deserialize<NasaPowerResponse>(response);
-
-            var ghiData =
-                nasaResponse.Properties.Parameter["ALLSKY_SFC_SW_DWN"];
-            var dniData =
-                nasaResponse.Properties.Parameter["ALLSKY_SFC_SW_DNI"];
-            var dhiData =
-                nasaResponse.Properties.Parameter["ALLSKY_SFC_SW_DIFF"];
-            var tempData =
-                nasaResponse.Properties.Parameter["T2M"];
+            var ghi = response.Properties.Parameter["ALLSKY_SFC_SW_DWN"];
+            var dni = response.Properties.Parameter["ALLSKY_SFC_SW_DNI"];
+            var dhi = response.Properties.Parameter["ALLSKY_SFC_SW_DIFF"];
+            var temp = response.Properties.Parameter["T2M"];
 
             var results = new List<SolarIrradiance>();
+            var txtPath = $"nasa_power_{_location.Latitude}_{_location.Longitude}_{_year}.txt";
 
-            foreach (var timestamp in ghiData.Keys)
+            using var writer = new StreamWriter(txtPath);
+            writer.WriteLine("DateTimeLocal | GHI | DNI | DHI | Temp");
+
+            foreach (var key in ghi.Keys)
             {
-                // Timestamp format: YYYYMMDDHH
-                int hour = int.Parse(timestamp.Substring(8, 2));
+                DateTime utc =
+                    DateTime.ParseExact(key, "yyyyMMddHH", CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+
+                DateTime local = TimeZoneInfo.ConvertTimeFromUtc(utc, _ist);
+
+                writer.WriteLine(
+                    $"{local:yyyy-MM-dd HH:mm} | {ghi[key]:F2} | {dni[key]:F2} | {dhi[key]:F2} | {temp[key]:F2}");
 
                 results.Add(new SolarIrradiance(
-                    hour: hour,
-                    ghi: ghiData[timestamp],
-                    dni: dniData[timestamp],
-                    dhi: dhiData[timestamp],
-                    ambientTempC: tempData[timestamp]
-                ));
+                    utc,
+                    local,
+                    ghi[key],
+                    dni[key],
+                    dhi[key],
+                    temp[key]));
             }
 
             return results;

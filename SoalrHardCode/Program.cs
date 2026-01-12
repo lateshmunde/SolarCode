@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Data;
-using SolarEnergyPOC.Interfaces;
+using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Services;
 
 namespace SolarEnergyPOC
@@ -13,55 +12,50 @@ namespace SolarEnergyPOC
         {
             var location = new Location(23.0, 72.0);
             int year = 2023;
-
             int panelCount = 18519;
-            var panels = new List<SolarPanel>();
 
+            var panels = new List<SolarPanel>();
             for (int i = 0; i < panelCount; i++)
-            {
-                panels.Add(new SolarPanel(
-                    tiltDeg: 25,
-                    azimuthDeg: 180,
-                    heightMeters: 2.5,
-                    ratedPowerKW: 0.54
-                ));
-            }
+                panels.Add(new SolarPanel(25, 180, 2.5, 0.54));
 
             var plant = new Plant(location, panels);
 
-            IIrradianceRepository irradianceRepo =
-                new NasaPowerIrradianceRepository(location, year);
+            Console.WriteLine("INPUT PARAMETERS");
+            Console.WriteLine("----------------");
+            Console.WriteLine($"Location        : {location.Latitude}, {location.Longitude}");
+            Console.WriteLine($"Year            : {year}");
+            Console.WriteLine($"Timezone        : IST (UTC+5:30)");
+            Console.WriteLine($"Panel Count     : {panelCount}");
+            Console.WriteLine($"Panel Rating    : 0.54 kW");
+            Console.WriteLine($"Total DC MW     : {plant.TotalDcCapacityKW / 1000:F2}");
+            Console.WriteLine($"Data Source     : NASA POWER");
+            Console.WriteLine();
 
-            var plantEnergyService = new PlantEnergyService(
+            var repo = new NasaPowerIrradianceRepository(location, year);
+
+            var service = new PlantEnergyService(
                 new SunPositionService(),
                 new ShadingService(),
-                new EnergyCalculationService()
-            );
+                new EnergyCalculationService());
 
-            var monthlyResults =
-                plantEnergyService.CalculateMonthlyEnergy(
-                    plant,
-                    irradianceRepo.GetHourlyData(),
-                    year
-                );
+            var monthly = service.CalculateMonthlyEnergy(
+                plant,
+                repo.GetHourlyData());
 
-            double yearlyEnergy =
-                plantEnergyService.CalculateYearlyEnergy(monthlyResults);
+            double annual = 0;
 
-            Console.WriteLine("Monthly Energy Report");
-            Console.WriteLine("--------------------------------");
+            Console.WriteLine("MONTHLY ENERGY REPORT (GWh)");
+            Console.WriteLine("--------------------------");
 
-            foreach (var month in monthlyResults)
+            foreach (var m in monthly)
             {
-                Console.WriteLine(
-                    $"Month {month.Month:00} : {month.EnergyKWh / 1_000:F2} MWh"
-                );
+                double gwh = m.EnergyKWh / 1_000_000;
+                annual += gwh;
+                Console.WriteLine($"Month {m.Month:00} : {gwh:F3}");
             }
 
-            Console.WriteLine("--------------------------------");
-            Console.WriteLine(
-                $"Annual Energy : {yearlyEnergy / 1_000_000:F2} GWh"
-            );
+            Console.WriteLine("--------------------------");
+            Console.WriteLine($"Annual Energy   : {annual:F3} GWh");
         }
     }
 }

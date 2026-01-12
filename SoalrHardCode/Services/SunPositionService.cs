@@ -1,37 +1,50 @@
-﻿using SolarEnergyPOC.Interfaces;
+﻿using System;
+using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Services
 {
-    /// <summary>
-    /// Provides solar position information.
-    /// 
-    /// NOTE:
-    /// This is a deliberately simplified model suitable for a POC.
-    /// It avoids heavy astronomical formulas while preserving realism.
-    /// 
-    /// Can later be replaced with:
-    /// - SPA / NREL models
-    /// - External solar libraries
-    /// </summary>
     public class SunPositionService : ISunPositionService
     {
-        /// <summary>
-        /// Returns approximate solar altitude angle (degrees) for a given hour.
-        /// 
-        /// Higher altitude → shorter shadows → higher energy.
-        /// </summary>
-        public double GetSolarAltitudeDeg(int hour)
+        private const double StdMeridian = 82.5;
+        private const double Longitude = 72.0;
+        private const double Latitude = 23.0;
+
+        public double GetSolarAltitudeDeg(int dummy) => throw new NotUsedException();
+
+        public double GetSolarAltitude(DateTime localTime)
         {
-            return hour switch
-            {
-                <= 9 => 25,
-                10 => 35,
-                11 => 45,
-                12 => 55,
-                13 => 50,
-                14 => 40,
-                _ => 30
-            };
+            int n = localTime.DayOfYear;
+
+            double decl =
+                23.45 * Math.Sin(DegToRad(360.0 * (284 + n) / 365.0));
+
+            double eot =
+                9.87 * Math.Sin(DegToRad(2 * B(n)))
+                - 7.53 * Math.Cos(DegToRad(B(n)))
+                - 1.5 * Math.Sin(DegToRad(B(n)));
+
+            double timeCorrection =
+                4 * (Longitude - StdMeridian) + eot;
+
+            double solarTime =
+                localTime.Hour + localTime.Minute / 60.0 + timeCorrection / 60.0;
+
+            double hourAngle =
+                15 * (solarTime - 12);
+
+            double altitude =
+                Math.Asin(
+                    Math.Sin(DegToRad(Latitude)) * Math.Sin(DegToRad(decl)) +
+                    Math.Cos(DegToRad(Latitude)) * Math.Cos(DegToRad(decl)) *
+                    Math.Cos(DegToRad(hourAngle)));
+
+            return RadToDeg(altitude);
         }
+
+        private static double B(int n) => 360.0 * (n - 81) / 364.0;
+        private static double DegToRad(double d) => d * Math.PI / 180.0;
+        private static double RadToDeg(double r) => r * 180.0 / Math.PI;
     }
+
+    public class NotUsedException : Exception { }
 }

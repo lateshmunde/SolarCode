@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 
@@ -7,114 +6,49 @@ namespace SolarEnergyPOC.Services
 {
     public class PlantEnergyService
     {
-        private readonly ISunPositionService _sunService;
-        private readonly IShadingService _shadingService;
-        private readonly IEnergyCalculationService _energyService;
+        private readonly SunPositionService _sun;
+        private readonly IShadingService _shading;
+        private readonly IEnergyCalculationService _energy;
 
         public PlantEnergyService(
-            ISunPositionService sunService,
-            IShadingService shadingService,
-            IEnergyCalculationService energyService)
+            SunPositionService sun,
+            IShadingService shading,
+            IEnergyCalculationService energy)
         {
-            _sunService = sunService;
-            _shadingService = shadingService;
-            _energyService = energyService;
+            _sun = sun;
+            _shading = shading;
+            _energy = energy;
         }
 
-        /// <summary>
-        /// Calculates hourly energy for the entire plant.
-        /// This is the lowest-level aggregation.
-        /// </summary>
-        private double CalculateHourlyPlantEnergy(
-            Plant plant,
-            SolarIrradiance irradiance)
-        {
-            double hourEnergy = 0;
-
-            double sunAltitude =
-                _sunService.GetSolarAltitudeDeg(irradiance.Hour);
-
-            foreach (var panel in plant.Panels)
-            {
-                double shadingLoss =
-                    _shadingService.GetShadingLoss(
-                        panel.HeightMeters,
-                        sunAltitude
-                    );
-
-                hourEnergy += _energyService.CalculateHourlyEnergy(
-                    panel,
-                    irradiance,
-                    sunAltitude,
-                    shadingLoss
-                );
-            }
-
-            return hourEnergy;
-        }
-
-        /// <summary>
-        /// Aggregates hourly data into monthly energy totals.
-        /// </summary>
         public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergy(
             Plant plant,
-            IEnumerable<SolarIrradiance> hourlyData,
-            int year)
+            IEnumerable<SolarIrradiance> data)
         {
-            var monthlyTotals = new Dictionary<int, double>();
+            var map = new Dictionary<int, double>();
 
-            foreach (var data in hourlyData)
+            foreach (var d in data)
             {
-                // NASA timestamp is not stored; assume representative year
-                int month = EstimateMonthFromHour(data.Hour, year);
+                int month = d.DateTimeLocal.Month;
+                if (!map.ContainsKey(month)) map[month] = 0;
 
-                if (!monthlyTotals.ContainsKey(month))
-                    monthlyTotals[month] = 0;
+                double alt = _sun.GetSolarAltitude(d.DateTimeLocal);
 
-                monthlyTotals[month] +=
-                    CalculateHourlyPlantEnergy(plant, data);
+                foreach (var p in plant.Panels)
+                {
+                    double shade =
+                        _shading.GetShadingLoss(p.HeightMeters, alt);
+
+                    map[month] +=
+                        _energy.CalculateHourlyEnergy(p, d, alt, shade);
+                }
             }
 
-            var results = new List<MonthlyEnergyResult>();
+            var result = new List<MonthlyEnergyResult>();
+            foreach (var kv in map)
+                result.Add(new MonthlyEnergyResult(kv.Key, kv.Value));
 
-            foreach (var kvp in monthlyTotals)
-            {
-                results.Add(
-                    new MonthlyEnergyResult(
-                        kvp.Key,
-                        kvp.Value
-                    )
-                );
-            }
-
-            results.Sort((a, b) => a.Month.CompareTo(b.Month));
-            return results;
-        }
-
-        /// <summary>
-        /// Temporary helper for POC.
-        /// 
-        /// In real implementation, SolarIrradiance will
-        /// carry DateTime directly.
-        /// </summary>
-        private int EstimateMonthFromHour(int hour, int year)
-        {
-            // Simple assumption: equal distribution
-            // Will be replaced once timestamp is DateTime
-            return (hour % 12) + 1;
-        }
-
-        /// <summary>
-        /// Aggregates monthly results into yearly energy.
-        /// </summary>
-        public double CalculateYearlyEnergy(
-            IEnumerable<MonthlyEnergyResult> monthlyResults)
-        {
-            double total = 0;
-            foreach (var month in monthlyResults)
-                total += month.EnergyKWh;
-
-            return total;
+            result.Sort((a, b) => a.Month.CompareTo(b.Month));
+            return result;
         }
     }
 }
