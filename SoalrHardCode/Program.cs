@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using SolarEnergyPOC.Data;
-using SolarEnergyPOC.Domain;
+using SolarEnergyPOC.Interfaces;
 using SolarEnergyPOC.Services;
-
+/// <summary>
+/// Entry point and orchestration layer.
+/// 
+/// This file wires together domain, data, and services.
+/// No business logic should live here.
+/// </summary>
 namespace SolarEnergyPOC
 {
     class Program

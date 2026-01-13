@@ -1,4 +1,7 @@
-﻿using SolarEnergyPOC.Domain;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 using System.Collections;
 using System.Collections.Generic;
@@ -36,6 +39,29 @@ namespace SolarEnergyPOC.Services
 
                     map[month] += Energy.CalculateHourlyEnergy(p, d, alt, shade);
                 }
+
+                monthlyEnergy *= panelCount;
+
+                int daysInMonth =
+                    DateTime.DaysInMonth(
+                        monthGroup.First().Timestamp.Year,
+                        monthGroup.Key);
+
+                double plantCapacityKW = panelCount * 0.54;
+
+                double specificYield =
+                    monthlyEnergy / plantCapacityKW;
+
+                double cuf =
+                    monthlyEnergy /
+                    (plantCapacityKW * 24 * daysInMonth);
+
+                results.Add(
+                    new MonthlyEnergyResult(
+                        monthGroup.Key,
+                        monthlyEnergy,
+                        specificYield,
+                        cuf));
             }
 
             var result = new List<MonthlyEnergyResult>();

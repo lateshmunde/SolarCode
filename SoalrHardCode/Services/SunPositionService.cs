@@ -3,6 +3,17 @@ using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Services
 {
+    /// <summary>
+    /// Provides solar position information.
+    /// 
+    /// NOTE:
+    /// This is a deliberately simplified model suitable for a POC.
+    /// It avoids heavy astronomical formulas while preserving realism.
+    /// 
+    /// Can later be replaced with:
+    /// - SPA / NREL models
+    /// - External solar libraries
+    /// </summary>
     public class SunPositionService : ISunPositionService
     {
         private const double StdMeridian = 82.5;
@@ -37,10 +48,6 @@ namespace SolarEnergyPOC.Services
 
             return RadToDeg(altitude);
         }
-
-        private static double B(int n) => 360.0 * (n - 81) / 364.0;
-        private static double DegToRad(double d) => d * Math.PI / 180.0;
-        private static double RadToDeg(double r) => r * 180.0 / Math.PI;
     }
 
     public class NotUsedException : Exception { }

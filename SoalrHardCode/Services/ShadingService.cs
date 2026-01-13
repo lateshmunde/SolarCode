@@ -1,5 +1,4 @@
 ﻿using SolarEnergyPOC.Interfaces;
-using System;
 
 namespace SolarEnergyPOC.Services
 {
