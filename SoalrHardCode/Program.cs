@@ -4,12 +4,9 @@ using SolarEnergyPOC.Data;
 using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 using SolarEnergyPOC.Services;
-/// <summary>
-/// Entry point and orchestration layer.
-/// 
+
+/// Entry point,  No business logic
 /// This file wires together domain, data, and services.
-/// No business logic should live here.
-/// </summary>
 namespace SolarEnergyPOC
 {
     class Program
