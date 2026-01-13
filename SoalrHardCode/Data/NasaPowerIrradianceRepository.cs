@@ -13,7 +13,6 @@ namespace SolarEnergyPOC.Data
     {
         private readonly Location Location;
         private readonly int Year;
-        private readonly TimeZoneInfo ist = TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "IST", "IST");
 
         public NasaPowerIrradianceRepository(Location location, int year)
         {
@@ -51,19 +50,27 @@ namespace SolarEnergyPOC.Data
 
             foreach (var key in ghi.Keys)
             {
-                DateTime utc =
-                    DateTime.ParseExact(key, "yyyyMMddHH", CultureInfo.InvariantCulture,
-                        DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+                // Parse NASA POWER hour-ending timestamp as Local
+                DateTime local = DateTime.SpecifyKind(
+                    DateTime.ParseExact(key, "yyyyMMddHH", CultureInfo.InvariantCulture),DateTimeKind.Local);
 
-                DateTime local = TimeZoneInfo.ConvertTimeFromUtc(utc, ist);
-
+                //  Write timestamp - converted to IST by default
                 writer.WriteLine(
                     $"{local:yyyy-MM-dd HH:mm} | {ghi[key]:F2} | {dni[key]:F2} | {dhi[key]:F2} | {temp[key]:F2}");
 
-                results.Add(new SolarIrradiance(utc, local, ghi[key], dni[key], dhi[key], temp[key]));
+                // Store both IST (calculation-safe)
+                results.Add(
+                    new SolarIrradiance(
+                        local,
+                        ghi[key],
+                        dni[key],
+                        dhi[key],
+                        temp[key]
+                    )
+                );
             }
 
-            return results;
+           return results;
         }
     }
 }
