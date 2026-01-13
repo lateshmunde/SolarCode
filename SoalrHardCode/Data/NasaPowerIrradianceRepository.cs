@@ -59,15 +59,7 @@ namespace SolarEnergyPOC.Data
                     $"{local:yyyy-MM-dd HH:mm} | {ghi[key]:F2} | {dni[key]:F2} | {dhi[key]:F2} | {temp[key]:F2}");
 
                 // Store both IST (calculation-safe)
-                results.Add(
-                    new SolarIrradiance(
-                        local,
-                        ghi[key],
-                        dni[key],
-                        dhi[key],
-                        temp[key]
-                    )
-                );
+                results.Add(new SolarIrradiance(local, ghi[key], dni[key], dhi[key], temp[key]));
             }
 
            return results;

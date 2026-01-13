@@ -10,15 +10,12 @@ namespace SolarEnergyPOC.Services
         private readonly SunPositionService Sun;
         private readonly IShadingService Shading; // double GetShadingLoss
         private readonly IEnergyCalculationService Energy; // double CalculateHourlyEnergy
-
         public PlantEnergyService(SunPositionService sun, IShadingService shading, IEnergyCalculationService energy)
         {
             Sun = sun;
             Shading = shading;
             Energy = energy;
         }
-        //IEnumerable - provides a standard way to iterate over a sequence of data, allowing developers to treat different collection 
-        // types(like arrays, lists, or custom collections) in a uniform manner using loops
         public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergy(Plant plant, IEnumerable<SolarIrradiance> data)
         {
             var map = new Dictionary<int, double>();
@@ -44,6 +41,16 @@ namespace SolarEnergyPOC.Services
 
             result.Sort((a, b) => a.Month.CompareTo(b.Month));
             return result;
+        }
+        public double CalculateAnnualEnergy(Plant plant, IEnumerable<SolarIrradiance> data)
+        {
+            var monthly = CalculateMonthlyEnergy(plant, data);
+
+            double total = 0;
+            foreach (var m in monthly)
+                total += m.EnergyKWh;
+
+            return total;
         }
 
         public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergyIdeal(Plant plant, IEnumerable<SolarIrradiance> data)
@@ -72,5 +79,17 @@ namespace SolarEnergyPOC.Services
             result.Sort((a, b) => a.Month.CompareTo(b.Month));
             return result;
         }
+
+        public double CalculateAnnualEnergyIdeal(Plant plant, IEnumerable<SolarIrradiance> data)
+        {
+            var monthly = CalculateMonthlyEnergyIdeal(plant, data);
+
+            double total = 0;
+            foreach (var m in monthly)
+                total += m.EnergyKWh;
+
+            return total;
+        }
+
     }
 }
