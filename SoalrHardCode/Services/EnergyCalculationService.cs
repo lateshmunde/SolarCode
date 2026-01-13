@@ -1,29 +1,45 @@
 ﻿using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
+using System;
+using System.Net;
 
 namespace SolarEnergyPOC.Services
 {
+    /// Ideal energy calculation service (NO LOSSES).
     public class EnergyCalculationService : IEnergyCalculationService
     {
-        private const double DcToAcEfficiency = 0.97;
-        private const double TempCoeff = -0.004;
-        private const double NOCT = 45; //NOCT model (industry standard)
+        private const double Albedo = 0.20;
 
-        public double CalculateHourlyEnergy(SolarPanel panel, SolarIrradiance irr, double sunAltDeg, double shadingLoss)
+        public double CalculateHourlyEnergy(
+            SolarPanel panel,
+            SolarIrradiance irr,
+            double sunAltDeg,
+            double shadingLoss)
         {
-            if (sunAltDeg <= 0) return 0;
+            // Night-time guard
+            if (sunAltDeg <= 0)
+                return 0.0;
 
-            double poa = irr.Ghi * 1.08 * (1 - shadingLoss);
+            double tiltRad = panel.TiltDeg * Math.PI / 180.0; // β - tilt angle 
+            double cosTilt = Math.Cos(tiltRad);
 
-            double cellTemp = irr.AmbientTempC + (poa / 800) * (NOCT - 20);
+            // Isotropic Plane-of-Array (POA) model
+            //POA = DNI·cosβ + DHI·(1 + cosβ) / 2 + GHI·ρg·(1−cosβ)/ 2
+            double poaWm2 =
+                irr.Dni * cosTilt +
+                irr.Dhi * (1 + cosTilt) / 2.0 +
+                irr.Ghi * Albedo * (1 - cosTilt) / 2.0;
 
-            double tempFactor = 1 + TempCoeff * (cellTemp - 25);
+            
 
-            double dcPower = panel.RatedPowerKW * (poa / 1000) * tempFactor;
+            if (poaWm2 <= 0)
+                return 0.0;
 
-            double acEnergy = dcPower * DcToAcEfficiency;
+            // Hourly energy (kWh)
+            double poaKWhPerM2 = poaWm2 / 1000.0;
 
-            return acEnergy > 0 ? acEnergy : 0;
+            // Ideal DC energy output
+            return poaKWhPerM2 * panel.RatedPowerKW;
         }
     }
 }

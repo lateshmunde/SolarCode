@@ -1,6 +1,5 @@
 ﻿using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace SolarEnergyPOC.Services
@@ -8,33 +7,40 @@ namespace SolarEnergyPOC.Services
     public class PlantEnergyService
     {
         private readonly SunPositionService Sun;
-        private readonly IShadingService Shading; // double GetShadingLoss
-        private readonly IEnergyCalculationService Energy; // double CalculateHourlyEnergy
+        private readonly IShadingService Shading;
+        private readonly IEnergyCalculationService Energy;
 
-        public PlantEnergyService(SunPositionService sun, IShadingService shading, IEnergyCalculationService energy)
+        public PlantEnergyService(
+            SunPositionService sun,
+            IShadingService shading,
+            IEnergyCalculationService energy)
         {
             Sun = sun;
             Shading = shading;
             Energy = energy;
         }
-        //IEnumerable - provides a standard way to iterate over a sequence of data, allowing developers to treat different collection 
-        // types(like arrays, lists, or custom collections) in a uniform manner using loops
-        public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergy(Plant plant, IEnumerable<SolarIrradiance> data)
+
+        public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergy(
+            Plant plant,
+            IEnumerable<SolarIrradiance> data)
         {
             var map = new Dictionary<int, double>();
 
             foreach (var d in data)
             {
                 int month = d.DateTimeLocal.Month;
-                if (!map.ContainsKey(month)) map[month] = 0;
+                if (!map.ContainsKey(month))
+                    map[month] = 0.0;
 
-                double alt = Sun.GetSolarAltitude(d.DateTimeLocal); //angle above horizon
+                double sunAlt = Sun.GetSolarAltitude(d.DateTimeLocal);
 
-                foreach (var p in plant.Panels)
+                foreach (var panel in plant.Panels)
                 {
-                    double shade = Shading.GetShadingLoss(p.HeightMeters, alt);
+                    double shadingLoss =
+                        Shading.GetShadingLoss(panel.HeightMeters, sunAlt);
 
-                    map[month] += Energy.CalculateHourlyEnergy(p, d, alt, shade);
+                    map[month] +=
+                        Energy.CalculateHourlyEnergy(panel, d, sunAlt, shadingLoss);
                 }
             }
 
