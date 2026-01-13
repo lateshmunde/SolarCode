@@ -3,10 +3,8 @@ using System.Text.Json.Serialization;
 
 namespace SolarEnergyPOC.Data
 {
-    /// <summary>
     /// Root response model for NASA POWER API.
     /// Only required fields are modeled.
-    /// </summary>
     public class NasaPowerResponse
     {
         [JsonPropertyName("properties")]

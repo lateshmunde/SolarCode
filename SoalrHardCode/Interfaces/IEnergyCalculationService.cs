@@ -1,7 +1,12 @@
-﻿namespace SolarEnergyPOC.Interfaces
+﻿using SolarEnergyPOC.Domain;
+
+namespace SolarEnergyPOC.Interfaces
 {
+    /// Contract for converting irradiance into energy output.
+    /// Keeps physics logic isolated and testable.
     public interface IEnergyCalculationService
     {
-        double CalculateFromPOA(double poaIrradiance);
+        double CalculateHourlyEnergy(SolarPanel panel, SolarIrradiance irradiance, double sunAltitudeDeg, double shadingLoss);
+        double CalculateHourlyEnergyIdeal(SolarPanel panel, SolarIrradiance irradiance, double sunAltitudeDeg, double shadingLoss);
     }
 }

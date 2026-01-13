@@ -2,28 +2,20 @@
 
 namespace SolarEnergyPOC.Domain
 {
-    /// <summary>
-    /// Represents irradiance data at a specific timestamp.
-    /// Units: W/m²
-    /// </summary>
     public class SolarIrradiance
     {
-        public DateTime Timestamp { get; }
+        public DateTime DateTimeUtc { get; }
+        public DateTime DateTimeLocal { get; }
 
         public double Ghi { get; }
         public double Dni { get; }
         public double Dhi { get; }
-
         public double AmbientTempC { get; }
 
-        public SolarIrradiance(
-            DateTime timestamp,
-            double ghi,
-            double dni,
-            double dhi,
-            double ambientTempC)
+        public SolarIrradiance(DateTime utc, DateTime local, double ghi, double dni, double dhi, double ambientTempC)
         {
-            Timestamp = timestamp;
+            DateTimeUtc = utc;
+            DateTimeLocal = local;
             Ghi = ghi;
             Dni = dni;
             Dhi = dhi;

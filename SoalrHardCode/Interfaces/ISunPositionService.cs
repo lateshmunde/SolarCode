@@ -1,10 +1,9 @@
-﻿using System;
-using SolarEnergyPOC.Domain;
-
-namespace SolarEnergyPOC.Interfaces
+﻿namespace SolarEnergyPOC.Interfaces
 {
+    /// Contract for providing solar position data.
+    /// Allows swapping simple or advanced sun models.
     public interface ISunPositionService
     {
-        SunPosition GetSunPosition(DateTime dateTime);
+        double GetSolarAltitudeDeg(int hour);
     }
 }

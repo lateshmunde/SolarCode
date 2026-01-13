@@ -1,87 +1,47 @@
 ﻿using System;
-using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Services
 {
     public class SunPositionService : ISunPositionService
     {
-        // Gujarat / Ahmedabad defaults
-        private const double LatitudeDeg = 23.0;
-        private const double LongitudeDeg = 72.0;
+        private const double StdMeridian = 82.5;
+        private const double Longitude = 72.0;
+        private const double Latitude = 23.0;
 
-        // IST standard meridian
-        private const double StandardMeridianDeg = 82.5;
+        public double GetSolarAltitudeDeg(int dummy) => throw new NotUsedException();
 
-        public SunPosition GetSunPosition(DateTime localTime)
-        {
-            // 1️⃣ Convert clock time → solar time
-            DateTime solarTime = ApplySolarTimeCorrection(localTime);
-
-            // 2️⃣ Solar declination
-            double declinationRad =
-                23.45 * Math.Sin(
-                    Deg2Rad(360.0 / 365.0 * (solarTime.DayOfYear - 81))
-                ) * Math.PI / 180.0;
-
-            // 3️⃣ Hour angle
-            double solarHour =
-                solarTime.Hour +
-                solarTime.Minute / 60.0 +
-                solarTime.Second / 3600.0;
-
-            double hourAngleRad =
-                Deg2Rad(15.0 * (solarHour - 12.0));
-
-            // 4️⃣ Latitude
-            double latRad = Deg2Rad(LatitudeDeg);
-
-            // 5️⃣ Zenith angle
-            double cosZenith =
-                Math.Sin(latRad) * Math.Sin(declinationRad) +
-                Math.Cos(latRad) * Math.Cos(declinationRad) *
-                Math.Cos(hourAngleRad);
-
-            cosZenith = Math.Clamp(cosZenith, -1.0, 1.0);
-
-            double zenithDeg =
-                Math.Acos(cosZenith) * 180.0 / Math.PI;
-
-            return new SunPosition
-            {
-                Zenith = zenithDeg,
-                Azimuth = 180 // south-facing approximation
-            };
-        }
-
-        // -------------------------------
-        // SOLAR TIME CORRECTION
-        // -------------------------------
-
-        private DateTime ApplySolarTimeCorrection(DateTime localTime)
+        public double GetSolarAltitude(DateTime localTime)
         {
             int n = localTime.DayOfYear;
 
-            // Equation of Time (minutes)
-            double B = Deg2Rad((360.0 / 365.0) * (n - 81));
+            //Solar Declination
+            double decl = 23.45 * Math.Sin(DegToRad(360.0 * (284 + n) / 365.0));
+            //Equation of Time
             double eot =
-                9.87 * Math.Sin(2 * B) -
-                7.53 * Math.Cos(B) -
-                1.5 * Math.Sin(B);
+                9.87 * Math.Sin(DegToRad(2 * B(n)))
+                - 7.53 * Math.Cos(DegToRad(B(n)))
+                - 1.5 * Math.Sin(DegToRad(B(n)));
 
-            // Longitude correction (minutes)
-            double longitudeCorrection =
-                4.0 * (LongitudeDeg - StandardMeridianDeg);
+            double timeCorrection = 4 * (Longitude - StdMeridian) + eot;
 
-            double totalMinutes =
-                longitudeCorrection + eot;
+            double solarTime = localTime.Hour + localTime.Minute / 60.0 + timeCorrection / 60.0;
 
-            return localTime.AddMinutes(totalMinutes);
+            double hourAngle = 15 * (solarTime - 12);
+
+            double altitude =
+                Math.Asin(
+                    Math.Sin(DegToRad(Latitude)) * Math.Sin(DegToRad(decl)) +
+                    Math.Cos(DegToRad(Latitude)) * Math.Cos(DegToRad(decl)) *
+                    Math.Cos(DegToRad(hourAngle)));
+
+            return RadToDeg(altitude);
         }
 
-        private static double Deg2Rad(double deg)
-        {
-            return deg * Math.PI / 180.0;
-        }
+        private static double B(int n) => 360.0 * (n - 81) / 364.0;
+        private static double DegToRad(double d) => d * Math.PI / 180.0;
+        private static double RadToDeg(double r) => r * 180.0 / Math.PI;
     }
+
+    public class NotUsedException : Exception { }
 }

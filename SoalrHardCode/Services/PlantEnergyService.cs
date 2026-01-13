@@ -1,110 +1,76 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using SolarEnergyPOC.Domain;
+﻿using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace SolarEnergyPOC.Services
 {
     public class PlantEnergyService
     {
-        private readonly ISunPositionService _sun;
-        private readonly IShadingService _shading;
-        private readonly IPlaneOfArrayIrradianceService _poa;
-        private readonly IEnergyCalculationService _energy;
+        private readonly SunPositionService Sun;
+        private readonly IShadingService Shading; // double GetShadingLoss
+        private readonly IEnergyCalculationService Energy; // double CalculateHourlyEnergy
 
-        public PlantEnergyService(
-            ISunPositionService sun,
-            IShadingService shading,
-            IPlaneOfArrayIrradianceService poa,
-            IEnergyCalculationService energy)
+        public PlantEnergyService(SunPositionService sun, IShadingService shading, IEnergyCalculationService energy)
         {
-            _sun = sun;
-            _shading = shading;
-            _poa = poa;
-            _energy = energy;
+            Sun = sun;
+            Shading = shading;
+            Energy = energy;
         }
-
-        // ------------------------------------
-        // HOURLY → PLANT ENERGY (kWh)
-        // ------------------------------------
-        private double CalculateHourEnergy(
-            IrradianceInput irr,
-            PanelGeometry geometry)
+        //IEnumerable - provides a standard way to iterate over a sequence of data, allowing developers to treat different collection 
+        // types(like arrays, lists, or custom collections) in a uniform manner using loops
+        public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergy(Plant plant, IEnumerable<SolarIrradiance> data)
         {
-            var sun = _sun.GetSunPosition(irr.Timestamp);
-            if (!sun.IsSunUp)
-                return 0;
+            var map = new Dictionary<int, double>();
 
-            var shadingFactor =
-                _shading.CalculateShadingFactor(sun, geometry);
-
-            var poa =
-                _poa.CalculatePOA(
-                    irr, sun, geometry, shadingFactor);
-
-            return _energy.CalculateFromPOA(poa);
-        }
-
-        // ------------------------------------
-        // MONTHLY AGGREGATION
-        // ------------------------------------
-        public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergy(
-            IEnumerable<IrradianceInput> data,
-            PanelGeometry geometry,
-            int panelCount)
-        {
-            var grouped =
-                data.GroupBy(d => d.Timestamp.Month);
-
-            var results = new List<MonthlyEnergyResult>();
-
-            foreach (var monthGroup in grouped)
+            foreach (var d in data)
             {
-                double monthlyEnergy = 0;
+                int month = d.DateTimeLocal.Month;
+                if (!map.ContainsKey(month)) map[month] = 0;
 
-                foreach (var hour in monthGroup)
+                double alt = Sun.GetSolarAltitude(d.DateTimeLocal); //angle above horizon
+
+                foreach (var p in plant.Panels)
                 {
-                    monthlyEnergy +=
-                        CalculateHourEnergy(hour, geometry);
+                    double shade = Shading.GetShadingLoss(p.HeightMeters, alt);
+
+                    map[month] += Energy.CalculateHourlyEnergy(p, d, alt, shade);
                 }
-
-                monthlyEnergy *= panelCount;
-
-                int daysInMonth =
-                    DateTime.DaysInMonth(
-                        monthGroup.First().Timestamp.Year,
-                        monthGroup.Key);
-
-                double plantCapacityKW = panelCount * 0.54;
-
-                double specificYield =
-                    monthlyEnergy / plantCapacityKW;
-
-                double cuf =
-                    monthlyEnergy /
-                    (plantCapacityKW * 24 * daysInMonth);
-
-                results.Add(
-                    new MonthlyEnergyResult(
-                        monthGroup.Key,
-                        monthlyEnergy,
-                        specificYield,
-                        cuf));
             }
 
-            return results
-                .OrderBy(r => r.Month)
-                .ToList();
+            var result = new List<MonthlyEnergyResult>();
+            foreach (var kv in map)
+                result.Add(new MonthlyEnergyResult(kv.Key, kv.Value));
+
+            result.Sort((a, b) => a.Month.CompareTo(b.Month));
+            return result;
         }
 
-        // ------------------------------------
-        // YEARLY ENERGY (from monthly)
-        // ------------------------------------
-        public double CalculateYearlyEnergy(
-            IEnumerable<MonthlyEnergyResult> monthly)
+        public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergyIdeal(Plant plant, IEnumerable<SolarIrradiance> data)
         {
-            return monthly.Sum(m => m.EnergyKWh);
+            var map = new Dictionary<int, double>();
+
+            foreach (var d in data)
+            {
+                int month = d.DateTimeLocal.Month;
+                if (!map.ContainsKey(month)) map[month] = 0;
+
+                double alt = Sun.GetSolarAltitude(d.DateTimeLocal); //angle above horizon
+
+                foreach (var p in plant.Panels)
+                {
+                    double shade = Shading.GetShadingLossIdeal(p.HeightMeters, alt);
+
+                    map[month] += Energy.CalculateHourlyEnergyIdeal(p, d, alt, shade);
+                }
+            }
+
+            var result = new List<MonthlyEnergyResult>();
+            foreach (var kv in map)
+                result.Add(new MonthlyEnergyResult(kv.Key, kv.Value));
+
+            result.Sort((a, b) => a.Month.CompareTo(b.Month));
+            return result;
         }
     }
 }
