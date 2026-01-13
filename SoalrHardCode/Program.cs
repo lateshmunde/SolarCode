@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using SolarEnergyPOC.Data;
+using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 using SolarEnergyPOC.Services;
 /// <summary>

@@ -1,4 +1,5 @@
-﻿using SolarEnergyPOC.Interfaces;
+﻿using SolarEnergyPOC.Domain;
+using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Services
 {

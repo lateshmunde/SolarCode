@@ -1,4 +1,6 @@
-﻿namespace SolarEnergyPOC.Interfaces
+﻿using SolarEnergyPOC.Domain;
+
+namespace SolarEnergyPOC.Interfaces
 {
     /// Contract for converting irradiance into energy output.
     /// Keeps physics logic isolated and testable.
