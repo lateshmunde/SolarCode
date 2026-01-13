@@ -13,14 +13,19 @@ namespace SolarEnergyPOC.Services
         /// panel height and sun altitude.
         public double GetShadingLoss(double panelHeight, double sunAltitudeDeg)
         {
-            //double sunAltitudeRad = sunAltitudeDeg * Math.PI / 180.0;
-            //double shadowLength = panelHeight / Math.Tan(sunAltitudeRad);
+            double sunAltitudeRad = sunAltitudeDeg * Math.PI / 180.0;
+            double shadowLength = panelHeight / Math.Tan(sunAltitudeRad);
 
-            //if (shadowLength <= RowSpacingMeters)
-            //    return 0.0;
+            if (shadowLength <= RowSpacingMeters)
+                return 0.0;
 
-            //return Math.Min((shadowLength - RowSpacingMeters) / panelHeight, 1.0 );
-            return 0;
+            return Math.Min((shadowLength - RowSpacingMeters) / panelHeight, 1.0);
+
+        }
+        public double GetShadingLossIdeal(double panelHeight, double sunAltitudeDeg)
+        {
+            // Ideal case: no shading
+            return 0.0;
         }
     }
 }

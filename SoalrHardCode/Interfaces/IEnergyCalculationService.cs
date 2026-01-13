@@ -7,5 +7,6 @@ namespace SolarEnergyPOC.Interfaces
     public interface IEnergyCalculationService
     {
         double CalculateHourlyEnergy(SolarPanel panel, SolarIrradiance irradiance, double sunAltitudeDeg, double shadingLoss);
+        double CalculateHourlyEnergyIdeal(SolarPanel panel, SolarIrradiance irradiance, double sunAltitudeDeg, double shadingLoss);
     }
 }

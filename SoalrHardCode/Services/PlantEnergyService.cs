@@ -45,5 +45,32 @@ namespace SolarEnergyPOC.Services
             result.Sort((a, b) => a.Month.CompareTo(b.Month));
             return result;
         }
+
+        public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergyIdeal(Plant plant, IEnumerable<SolarIrradiance> data)
+        {
+            var map = new Dictionary<int, double>();
+
+            foreach (var d in data)
+            {
+                int month = d.DateTimeLocal.Month;
+                if (!map.ContainsKey(month)) map[month] = 0;
+
+                double alt = Sun.GetSolarAltitude(d.DateTimeLocal); //angle above horizon
+
+                foreach (var p in plant.Panels)
+                {
+                    double shade = Shading.GetShadingLossIdeal(p.HeightMeters, alt);
+
+                    map[month] += Energy.CalculateHourlyEnergyIdeal(p, d, alt, shade);
+                }
+            }
+
+            var result = new List<MonthlyEnergyResult>();
+            foreach (var kv in map)
+                result.Add(new MonthlyEnergyResult(kv.Key, kv.Value));
+
+            result.Sort((a, b) => a.Month.CompareTo(b.Month));
+            return result;
+        }
     }
 }

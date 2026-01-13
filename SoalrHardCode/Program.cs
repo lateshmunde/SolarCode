@@ -22,6 +22,7 @@ namespace SolarEnergyPOC
 
             Console.WriteLine("INPUT PARAMETERS");
             Console.WriteLine("----------------");
+            Console.WriteLine("Practical Case : With Losses Considered");
             Console.WriteLine($"Location        : {location.Latitude}, {location.Longitude}");
             Console.WriteLine($"Year            : {year}");
             Console.WriteLine($"Timezone        : IST (UTC+5:30)");
@@ -54,6 +55,40 @@ namespace SolarEnergyPOC
 
             Console.WriteLine("--------------------------");
             Console.WriteLine($"Annual Energy   : {annual:F3} GWh");
+
+
+
+            Console.WriteLine("-------------------------------------------------------------------------");
+            Console.WriteLine("INPUT PARAMETERS");
+            Console.WriteLine("----------------");
+            Console.WriteLine("Ideal Case : With No Losses Considered");
+            Console.WriteLine($"Location        : {location.Latitude}, {location.Longitude}");
+            Console.WriteLine($"Year            : {year}");
+            Console.WriteLine($"Timezone        : IST (UTC+5:30)");
+            Console.WriteLine($"Panel Count     : {panelCount}");
+            Console.WriteLine($"Panel Rating    : 0.54 kW");
+            Console.WriteLine($"Total DC MW     : {plant.TotalDcCapacityKW / 1000:F2}");
+            Console.WriteLine($"Data Source     : NASA POWER");
+            Console.WriteLine();
+
+            
+
+            var monthlyIdeal = service.CalculateMonthlyEnergyIdeal(plant, repo.GetHourlyData());
+
+            double annualIdeal = 0;
+
+            Console.WriteLine("MONTHLY ENERGY REPORT (GWh)");
+            Console.WriteLine("--------------------------");
+
+            foreach (var m in monthlyIdeal)
+            {
+                double gwh = m.EnergyKWh / 1_000_000;
+                annualIdeal += gwh;
+                Console.WriteLine($"Month {m.Month:00} : {gwh:F3}");
+            }
+
+            Console.WriteLine("--------------------------");
+            Console.WriteLine($"Annual Energy   : {annualIdeal:F3} GWh");
         }
     }
 }

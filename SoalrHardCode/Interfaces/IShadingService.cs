@@ -5,5 +5,6 @@
     public interface IShadingService
     {
         double GetShadingLoss(double panelHeight, double sunAltitudeDeg);
+        double GetShadingLossIdeal(double panelHeight, double sunAltitudeDeg);
     }
 }
