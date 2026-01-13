@@ -15,22 +15,19 @@ namespace SolarEnergyPOC.Services
         {
             int n = localTime.DayOfYear;
 
-            double decl =
-                23.45 * Math.Sin(DegToRad(360.0 * (284 + n) / 365.0));
-
+            //Solar Declination
+            double decl = 23.45 * Math.Sin(DegToRad(360.0 * (284 + n) / 365.0));
+            //Equation of Time
             double eot =
                 9.87 * Math.Sin(DegToRad(2 * B(n)))
                 - 7.53 * Math.Cos(DegToRad(B(n)))
                 - 1.5 * Math.Sin(DegToRad(B(n)));
 
-            double timeCorrection =
-                4 * (Longitude - StdMeridian) + eot;
+            double timeCorrection = 4 * (Longitude - StdMeridian) + eot;
 
-            double solarTime =
-                localTime.Hour + localTime.Minute / 60.0 + timeCorrection / 60.0;
+            double solarTime = localTime.Hour + localTime.Minute / 60.0 + timeCorrection / 60.0;
 
-            double hourAngle =
-                15 * (solarTime - 12);
+            double hourAngle = 15 * (solarTime - 12);
 
             double altitude =
                 Math.Asin(

@@ -12,13 +12,7 @@ namespace SolarEnergyPOC.Domain
         public double Dhi { get; }
         public double AmbientTempC { get; }
 
-        public SolarIrradiance(
-            DateTime utc,
-            DateTime local,
-            double ghi,
-            double dni,
-            double dhi,
-            double ambientTempC)
+        public SolarIrradiance(DateTime utc, DateTime local, double ghi, double dni, double dhi, double ambientTempC)
         {
             DateTimeUtc = utc;
             DateTimeLocal = local;

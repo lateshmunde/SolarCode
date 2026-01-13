@@ -38,9 +38,7 @@ namespace SolarEnergyPOC
                 new ShadingService(),
                 new EnergyCalculationService());
 
-            var monthly = service.CalculateMonthlyEnergy(
-                plant,
-                repo.GetHourlyData());
+            var monthly = service.CalculateMonthlyEnergy(plant, repo.GetHourlyData());
 
             double annual = 0;
 
