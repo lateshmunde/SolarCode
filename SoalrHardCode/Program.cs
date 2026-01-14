@@ -44,9 +44,11 @@ namespace SolarEnergyPOC
             var losses = new List<IEnergyLoss>
             {
                 new ShadingLoss(),
-                new SoilingLoss(0.05),        // 5% soiling
+                //new SoilingLoss(0.05),        // 5% soiling
+                new SoilingLoss(0.00),       
                 new TemperatureLoss(),
-                new DcWiringLoss(0.02),       // 2% DC wiring
+                //new DcWiringLoss(0.02),       // 2% DC wiring
+                new DcWiringLoss(0.00),       // 2% DC wiring
                 new InverterLoss(0.97)        // 97% inverter efficiency
             };
 
