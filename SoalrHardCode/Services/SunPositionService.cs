@@ -9,8 +9,6 @@ namespace SolarEnergyPOC.Services
         private const double Longitude = 72.0;
         private const double Latitude = 23.0;
 
-        public double GetSolarAltitudeDeg(int dummy) => throw new NotUsedException();
-
         public double GetSolarAltitude(DateTime localTime)
         {
             int n = localTime.DayOfYear;
@@ -43,5 +41,4 @@ namespace SolarEnergyPOC.Services
         private static double RadToDeg(double r) => r * 180.0 / Math.PI;
     }
 
-    public class NotUsedException : Exception { }
 }
