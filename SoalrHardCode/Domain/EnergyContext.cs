@@ -1,27 +1,26 @@
-﻿namespace SolarEnergyPOC.Domain
+﻿using SolarEnergyPOC.Domain;
+
+namespace SolarEnergyPOC.Domain
 {
-    /// Carries energy state through the loss pipeline (PVcase-style)
     public class EnergyContext
     {
-        // Irradiance
-        public double Ghi;
-        public double Dni;
-        public double Dhi;
+        // Immutable input
+        public SolarIrradiance Irradiance { get; init; }
 
         // Geometry
-        public double SunAltitudeDeg;
+        public double SunAltitudeDeg { get; set; }
 
         // Plane of Array
-        public double Poa; // W/m2
+        public double Poa { get; set; }              // W/m²
 
         // Thermal
-        public double CellTemperatureC;
+        public double CellTemperatureC { get; set; }
 
-        // Power states
-        public double DcPowerKW;
-        public double AcPowerKW;
+        // Electrical
+        public double DcPowerKW { get; set; }
+        public double AcPowerKW { get; set; }
 
-        // Final energy
-        public double EnergyKWh;
+        // Final
+        public double EnergyKWh { get; set; }
     }
 }

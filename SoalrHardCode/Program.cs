@@ -28,8 +28,7 @@ namespace SolarEnergyPOC
             // --------------------
             // Data source (UNCHANGED)
             // --------------------
-            IIrradianceRepository repo =
-                new NasaPowerIrradianceRepository(location, year);
+            IIrradianceRepository repo = new NasaPowerIrradianceRepository(location, year);
 
             var irradianceData = repo.GetHourlyData();
 
@@ -66,8 +65,7 @@ namespace SolarEnergyPOC
             // --------------------
             PrintInput(location, year, plant, panelCount);
 
-            var monthly = plantEnergyService
-                .CalculateMonthlyEnergy(plant, irradianceData);
+            var monthly = plantEnergyService.CalculateMonthlyEnergy(plant, irradianceData);
 
             PrintMonthly(monthly);
 

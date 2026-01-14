@@ -4,6 +4,6 @@
     /// Allows swapping simple or advanced sun models.
     public interface ISunPositionService
     {
-        double GetSolarAltitudeDeg(int hour);
+        public double GetSolarAltitude(DateTime localTime);
     }
 }
