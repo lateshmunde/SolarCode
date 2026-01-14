@@ -84,11 +84,7 @@ namespace SolarEnergyPOC
             return panels;
         }
 
-        private static void PrintInput(
-            Location location,
-            int year,
-            Plant plant,
-            int panelCount)
+        private static void PrintInput(Location location, int year, Plant plant, int panelCount)
         {
             Console.WriteLine("INPUT PARAMETERS");
             Console.WriteLine("----------------");
