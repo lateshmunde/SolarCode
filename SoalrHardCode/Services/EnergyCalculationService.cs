@@ -6,8 +6,8 @@ namespace SolarEnergyPOC.Services
     public class EnergyCalculationService : IEnergyCalculationService
     {
         private const double DcToAcEfficiency = 0.97;
-        private const double TempCoeff = -0.004;
-        private const double NOCT = 45; //NOCT model (industry standard)
+        private const double TempCoeff = -0.004; // temp loss
+        private const double NOCT = 45; //NOCT model (industry standard) // temp loss
 
         private const double Albedo = 0.20; //for ideal case
         public double CalculateHourlyEnergy(SolarPanel panel, SolarIrradiance irr, double sunAltDeg, double shadingLoss)
