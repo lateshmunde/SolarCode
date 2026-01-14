@@ -4,6 +4,7 @@ using SolarEnergyPOC.Data;
 using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 using SolarEnergyPOC.Services;
+using SolarEnergyPOC.Services.Losses;
 
 namespace SolarEnergyPOC
 {
@@ -25,58 +26,74 @@ namespace SolarEnergyPOC
             var plant = new Plant(location, panels);
 
             // --------------------
-            // Infrastructure setup
+            // Data source (UNCHANGED)
             // --------------------
-            IIrradianceRepository repo = new NasaPowerIrradianceRepository(location, year);
+            IIrradianceRepository repo =
+                new NasaPowerIrradianceRepository(location, year);
 
-            var service = new PlantEnergyService(
-                new SunPositionService(),
-                new ShadingService(),
-                new EnergyCalculationService());
-
-            // Fetch data once (important: avoid multiple API calls)
-            var data = repo.GetHourlyData();
+            var irradianceData = repo.GetHourlyData();
 
             // --------------------
-            // Practical Case
+            // Services
             // --------------------
-            PrintInput("Practical Case : With Losses Considered", location, year, plant, panelCount);
+            var sunService = new SunPositionService();
+            var poaService = new PoaTranspositionService();
 
-            var MonthlyEnergyList = service.CalculateMonthlyEnergy(plant, data);
-            PrintMonthly(MonthlyEnergyList);
+            // --------------------
+            // Loss Pipeline (PVcase-style)
+            // --------------------
+            var losses = new List<IEnergyLoss>
+            {
+                new ShadingLoss(),
+                new SoilingLoss(0.05),        // 5% soiling
+                new TemperatureLoss(),
+                new DcWiringLoss(0.02),       // 2% DC wiring
+                new InverterLoss(0.97)        // 97% inverter efficiency
+            };
 
-            double annual = service.CalculateAnnualEnergy(plant, MonthlyEnergyList);
+            var pipeline = new LossPipeline(losses);
+
+            // --------------------
+            // Plant Energy Engine
+            // --------------------
+            var plantEnergyService = new PlantEnergyService(
+                sunService,
+                poaService,
+                pipeline);
+
+            // --------------------
+            // Run calculation
+            // --------------------
+            PrintInput(location, year, plant, panelCount);
+
+            var monthly = plantEnergyService
+                .CalculateMonthlyEnergy(plant, irradianceData);
+
+            PrintMonthly(monthly);
+
+            double annual = 0;
+            foreach (var m in monthly)
+                annual += m.EnergyKWh;
+
             Console.WriteLine($"Annual Energy   : {annual / 1_000_000:F3} GWh");
-
-            // --------------------
-            // Ideal Case
-            // --------------------
-            Console.WriteLine("\n------------------------------------------------------------\n");
-
-            PrintInput("Ideal Case : With No Losses Considered", location, year, plant, panelCount);
-
-            var MonthlyEnergyListIdeal = service.CalculateMonthlyEnergyIdeal(plant, data);
-            PrintMonthly(MonthlyEnergyListIdeal);
-
-            double annualIdeal = service.CalculateAnnualEnergy(plant, MonthlyEnergyListIdeal);
-            Console.WriteLine($"Annual Energy   : {annualIdeal / 1_000_000:F3} GWh");
         }
 
         private static List<SolarPanel> CreatePanels(int count)
         {
             var panels = new List<SolarPanel>(count);
-
             for (int i = 0; i < count; i++)
                 panels.Add(new SolarPanel(25, 180, 2.5, 0.54));
-
             return panels;
         }
 
-        private static void PrintInput(string title, Location location, int year, Plant plant, int panelCount)
+        private static void PrintInput(
+            Location location,
+            int year,
+            Plant plant,
+            int panelCount)
         {
             Console.WriteLine("INPUT PARAMETERS");
             Console.WriteLine("----------------");
-            Console.WriteLine(title);
             Console.WriteLine($"Location        : {location.Latitude}, {location.Longitude}");
             Console.WriteLine($"Year            : {year}");
             Console.WriteLine($"Timezone        : IST (UTC+5:30)");
