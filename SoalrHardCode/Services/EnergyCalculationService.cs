@@ -21,17 +21,14 @@ namespace SolarEnergyPOC.Services
             double tempFactor = 1 + TempCoeff * (cellTemp - 25);
 
             double dcPower = panel.RatedPowerKW * (poa / 1000) * tempFactor;
+            //RatedPower : indicates its maximum DC power output under ideal lab conditions
 
             double acEnergy = dcPower * DcToAcEfficiency;
 
             return acEnergy > 0 ? acEnergy : 0;
         }
 
-        public double CalculateHourlyEnergyIdeal(
-            SolarPanel panel,
-            SolarIrradiance irr,
-            double sunAltDeg,
-            double shadingLoss)
+        public double CalculateHourlyEnergyIdeal(SolarPanel panel, SolarIrradiance irr, double sunAltDeg, double shadingLoss)
         {
             // Night-time guard
             if (sunAltDeg <= 0)
@@ -42,18 +39,16 @@ namespace SolarEnergyPOC.Services
 
             // Isotropic Plane-of-Array (POA) model
             //POA = DNI·cosβ + DHI·(1 + cosβ) / 2 + GHI·ρg·(1−cosβ)/ 2
-            double poaWm2 =
+            double poa =
                 irr.Dni * cosTilt +
                 irr.Dhi * (1 + cosTilt) / 2.0 +
                 irr.Ghi * Albedo * (1 - cosTilt) / 2.0;
 
-
-
-            if (poaWm2 <= 0)
+            if (poa <= 0)
                 return 0.0;
 
             // Hourly energy (kWh)
-            double poaKWhPerM2 = poaWm2 / 1000.0;
+            double poaKWhPerM2 = poa / 1000.0;
 
             // Ideal DC energy output
             return poaKWhPerM2 * panel.RatedPowerKW;

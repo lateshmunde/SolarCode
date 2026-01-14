@@ -27,8 +27,7 @@ namespace SolarEnergyPOC
             // --------------------
             // Infrastructure setup
             // --------------------
-            IIrradianceRepository repo =
-                new NasaPowerIrradianceRepository(location, year);
+            IIrradianceRepository repo = new NasaPowerIrradianceRepository(location, year);
 
             var service = new PlantEnergyService(
                 new SunPositionService(),
@@ -41,13 +40,12 @@ namespace SolarEnergyPOC
             // --------------------
             // Practical Case
             // --------------------
-            PrintInput(
-                "Practical Case : With Losses Considered",
-                location, year, plant, panelCount);
+            PrintInput("Practical Case : With Losses Considered", location, year, plant, panelCount);
 
-            PrintMonthly(service.CalculateMonthlyEnergy(plant, data));
+            var MonthlyEnergyList = service.CalculateMonthlyEnergy(plant, data);
+            PrintMonthly(MonthlyEnergyList);
 
-            double annual = service.CalculateAnnualEnergy(plant, data);
+            double annual = service.CalculateAnnualEnergy(plant, MonthlyEnergyList);
             Console.WriteLine($"Annual Energy   : {annual / 1_000_000:F3} GWh");
 
             // --------------------
@@ -55,13 +53,12 @@ namespace SolarEnergyPOC
             // --------------------
             Console.WriteLine("\n------------------------------------------------------------\n");
 
-            PrintInput(
-                "Ideal Case : With No Losses Considered",
-                location, year, plant, panelCount);
+            PrintInput("Ideal Case : With No Losses Considered", location, year, plant, panelCount);
 
-            PrintMonthly(service.CalculateMonthlyEnergyIdeal(plant, data));
+            var MonthlyEnergyListIdeal = service.CalculateMonthlyEnergyIdeal(plant, data);
+            PrintMonthly(MonthlyEnergyListIdeal);
 
-            double annualIdeal = service.CalculateAnnualEnergyIdeal(plant, data);
+            double annualIdeal = service.CalculateAnnualEnergy(plant, MonthlyEnergyListIdeal);
             Console.WriteLine($"Annual Energy   : {annualIdeal / 1_000_000:F3} GWh");
         }
 
@@ -75,12 +72,7 @@ namespace SolarEnergyPOC
             return panels;
         }
 
-        private static void PrintInput(
-            string title,
-            Location location,
-            int year,
-            Plant plant,
-            int panelCount)
+        private static void PrintInput(string title, Location location, int year, Plant plant, int panelCount)
         {
             Console.WriteLine("INPUT PARAMETERS");
             Console.WriteLine("----------------");

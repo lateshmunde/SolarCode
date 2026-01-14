@@ -42,16 +42,7 @@ namespace SolarEnergyPOC.Services
             result.Sort((a, b) => a.Month.CompareTo(b.Month));
             return result;
         }
-        public double CalculateAnnualEnergy(Plant plant, IEnumerable<SolarIrradiance> data)
-        {
-            var monthly = CalculateMonthlyEnergy(plant, data);
-
-            double total = 0;
-            foreach (var m in monthly)
-                total += m.EnergyKWh;
-
-            return total;
-        }
+        
 
         public IReadOnlyList<MonthlyEnergyResult> CalculateMonthlyEnergyIdeal(Plant plant, IEnumerable<SolarIrradiance> data)
         {
@@ -80,9 +71,9 @@ namespace SolarEnergyPOC.Services
             return result;
         }
 
-        public double CalculateAnnualEnergyIdeal(Plant plant, IEnumerable<SolarIrradiance> data)
+        public double CalculateAnnualEnergy(Plant plant, IReadOnlyList<MonthlyEnergyResult> data)
         {
-            var monthly = CalculateMonthlyEnergyIdeal(plant, data);
+            var monthly = data;
 
             double total = 0;
             foreach (var m in monthly)
