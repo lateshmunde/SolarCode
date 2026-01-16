@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using SolarEnergyPOC.Data;
 using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
@@ -12,106 +14,164 @@ namespace SolarEnergyPOC
     {
         static void Main()
         {
-            // --------------------
             // Configuration
-            // --------------------
-            var location = new Location(23.0, 72.0);
+            //string cityName = "Khavda"; // Hardcoded
+            //var location = new Location(23.8443, 69.7317);
+
+            string cityName = "Chinchwad"; // Hardcoded
+            var location = new Location(18.618, 73.801);
+
+            //string cityName = "Pune"; // Hardcoded
+            //var location = new Location(18.52, 73.88);
+
+
             int year = 2023;
             int panelCount = 18519;
 
-            // --------------------
             // Domain setup
-            // --------------------
             var panels = CreatePanels(panelCount);
             var plant = new Plant(location, panels);
 
-            // --------------------
-            // Data source (UNCHANGED)
-            // --------------------
+            // Data source
             IIrradianceRepository repo = new NasaPowerIrradianceRepository(location, year);
-
             var irradianceData = repo.GetHourlyData();
 
-            // --------------------
             // Services
-            // --------------------
             var sunService = new SunPositionService();
             var poaService = new PoaTranspositionService();
 
-            // --------------------
-            // Loss Pipeline (PVcase-style)
-            // --------------------
+            // Site Layout Params - Critical sun Altitude
+            DateTime winterDesignTime =
+                new DateTime(2025, 12, 21, 9, 0, 0); // local clock time
+
+            double criticalSunAltitudeDeg =
+                sunService.GetSolarAltitude(winterDesignTime, location);
+
+            var layoutParameters = new SiteLayoutParameters
+            {
+                CriticalSunAltitudeDeg = criticalSunAltitudeDeg
+            };
+
+
+            // Loss Pipeline
             var losses = new List<IEnergyLoss>
             {
-                new ShadingLoss(),
-                //new SoilingLoss(0.05),        // 5% soiling
-                new SoilingLoss(0.00),       
+                new ShadingLoss(layoutParameters),
+                new SoilingLoss(0.05),
                 new TemperatureLoss(),
-                //new DcWiringLoss(0.02),       // 2% DC wiring
-                new DcWiringLoss(0.00),       // 2% DC wiring
-                new InverterLoss(0.97)        // 97% inverter efficiency
+                new DcWiringLoss(0.02),
+                new InverterLoss(0.97)
             };
 
             var pipeline = new LossPipeline(losses);
 
-            // --------------------
-            // Plant Energy Engine
-            // --------------------
             var plantEnergyService = new PlantEnergyService(
                 sunService,
                 poaService,
                 pipeline);
 
-            // --------------------
-            // Run calculation
-            // --------------------
-            PrintInput(location, year, plant, panelCount);
-
+            // Run
             var monthly = plantEnergyService.CalculateMonthlyEnergy(plant, irradianceData);
 
-            PrintMonthly(monthly);
+            PrintConsoleReport(cityName, location, plant, panelCount, year, monthly);
 
-            double annual = 0;
-            foreach (var m in monthly)
-                annual += m.EnergyKWh;
+            ExportToReport(cityName, location, plant, panelCount, year, monthly,
+                $"Solar_Report_{cityName}_{year}.txt");
 
-            Console.WriteLine($"Annual Energy   : {annual / 1_000_000:F3} GWh");
+            Console.WriteLine("\nReports generated successfully.");
         }
 
         private static List<SolarPanel> CreatePanels(int count)
         {
-            var panels = new List<SolarPanel>(count);
+            var list = new List<SolarPanel>(count);
             for (int i = 0; i < count; i++)
-                panels.Add(new SolarPanel(25, 180, 2.5, 0.54));
-            return panels;
+                list.Add(new SolarPanel(25, 180, 2.5, 0.54));
+            return list;
         }
 
-        private static void PrintInput(Location location, int year, Plant plant, int panelCount)
+        // CONSOLE REPORT
+        private static void PrintConsoleReport(
+            string city,
+            Location location,
+            Plant plant,
+            int panelCount,
+            int year,
+            IEnumerable<MonthlyEnergyResult> monthly)
         {
-            Console.WriteLine("INPUT PARAMETERS");
-            Console.WriteLine("----------------");
-            Console.WriteLine($"Location        : {location.Latitude}, {location.Longitude}");
+            Console.WriteLine("=================================================");
+            Console.WriteLine("         SOLAR PLANT ENERGY REPORT");
+            Console.WriteLine("=================================================");
+            Console.WriteLine($"Location        : {city}");
+            Console.WriteLine($"Coordinates     : {location.Latitude}, {location.Longitude}");
             Console.WriteLine($"Year            : {year}");
-            Console.WriteLine($"Timezone        : IST (UTC+5:30)");
             Console.WriteLine($"Panel Count     : {panelCount}");
-            Console.WriteLine($"Panel Rating    : 0.54 kW");
-            Console.WriteLine($"Total DC MW     : {plant.TotalDcCapacityKW / 1000:F2}");
-            Console.WriteLine($"Data Source     : NASA POWER");
+            Console.WriteLine($"Panel Rating    : 540 W");
+            Console.WriteLine($"Total DC Size    : {plant.TotalDcCapacityKW / 1000:F2} MW");
             Console.WriteLine();
-        }
+            Console.WriteLine("Month        Energy (GWh)");
+            Console.WriteLine("------------------------------");
 
-        private static void PrintMonthly(IEnumerable<MonthlyEnergyResult> monthly)
-        {
-            Console.WriteLine("MONTHLY ENERGY REPORT (GWh)");
-            Console.WriteLine("--------------------------");
+            double total = 0;
 
             foreach (var m in monthly)
             {
+                string name = new DateTime(year, m.Month, 1).ToString("MMMM");
                 double gwh = m.EnergyKWh / 1_000_000;
-                Console.WriteLine($"Month {m.Month:00} : {gwh:F3}");
+                total += gwh;
+
+                Console.WriteLine($"{name,-12}{gwh,8:F3}");
             }
 
-            Console.WriteLine("--------------------------");
+            Console.WriteLine("------------------------------");
+            Console.WriteLine($"Annual Total : {total:F3} GWh");
+            Console.WriteLine("=================================================");
+        }
+   
+        //  TXT REPORT
+        private static void ExportToReport(
+            string city,
+            Location location,
+            Plant plant,
+            int panelCount,
+            int year,
+            IEnumerable<MonthlyEnergyResult> monthly,
+            string path)
+        {
+            var sb = new StringBuilder();
+            double total = 0;
+
+            sb.AppendLine("============================================================");
+            sb.AppendLine("                 SOLAR PLANT ENERGY REPORT");
+            sb.AppendLine("============================================================\n");
+
+            sb.AppendLine($"Location        : {city}");
+            sb.AppendLine($"Coordinates     : {location.Latitude}, {location.Longitude}");
+            sb.AppendLine($"Year            : {year}");
+            sb.AppendLine($"Panel Count     : {panelCount}");
+            sb.AppendLine($"Panel Rating    : 540 W");
+            sb.AppendLine($"Total DC Size    : {plant.TotalDcCapacityKW / 1000:F2} MW");
+            sb.AppendLine("Data Source      : NASA POWER\n");
+
+            sb.AppendLine("------------------------------------------------------------");
+            sb.AppendLine("MONTHLY ENERGY GENERATION");
+            sb.AppendLine("------------------------------------------------------------");
+            sb.AppendLine($"{"Month",-15}{"Energy (GWh)",15}");
+            sb.AppendLine("------------------------------------------------------------");
+
+            foreach (var m in monthly)
+            {
+                string name = new DateTime(year, m.Month, 1).ToString("MMMM");
+                double gwh = m.EnergyKWh / 1_000_000;
+                total += gwh;
+
+                sb.AppendLine($"{name,-15}{gwh,15:F3}");
+            }
+
+            sb.AppendLine("------------------------------------------------------------");
+            sb.AppendLine($"Annual Total     : {total:F3} GWh");
+            sb.AppendLine("------------------------------------------------------------");
+
+            File.WriteAllText(path, sb.ToString());
         }
     }
 }

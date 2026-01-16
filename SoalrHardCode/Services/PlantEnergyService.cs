@@ -35,7 +35,7 @@ namespace SolarEnergyPOC.Services
                 foreach (var panel in plant.Panels)
                 {
                     monthlyMap[month] +=
-                        CalculateHourlyEnergy(panel, hour);
+                        CalculateHourlyEnergy(panel, hour, plant.Location);
                 }
             }
 
@@ -47,13 +47,10 @@ namespace SolarEnergyPOC.Services
             return result;
         }
 
-        // -------------------------------
-        // PRIVATE: Hourly energy engine
-        // -------------------------------
-        private double CalculateHourlyEnergy(SolarPanel panel, SolarIrradiance irradiance)
+        private double CalculateHourlyEnergy(SolarPanel panel, SolarIrradiance irradiance, Location loc)
         {
             // 1. Solar geometry
-            double sunAltitude = sunService.GetSolarAltitude(irradiance.DateTimeLocal);
+            double sunAltitude = sunService.GetSolarAltitude(irradiance.DateTimeLocal, loc);
 
             if (sunAltitude <= 0)
                 return 0.0;
