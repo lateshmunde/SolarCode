@@ -1,4 +1,5 @@
 ﻿using System;
+using SolarEnergyPOC.Domain;
 using SolarEnergyPOC.Interfaces;
 
 namespace SolarEnergyPOC.Services
@@ -6,11 +7,12 @@ namespace SolarEnergyPOC.Services
     public class SunPositionService : ISunPositionService
     {
         private const double StdMeridian = 82.5;
-        private const double Longitude = 72.0;
-        private const double Latitude = 23.0;
+        
 
-        public double GetSolarAltitude(DateTime localTime)
+        public double GetSolarAltitude(DateTime localTime, Location loc)
         {
+            double Lon = loc.Longitude;
+            double Lat = loc.Latitude;
             int n = localTime.DayOfYear;
 
             //Solar Declination
@@ -21,7 +23,7 @@ namespace SolarEnergyPOC.Services
                 - 7.53 * Math.Cos(DegToRad(B(n)))
                 - 1.5 * Math.Sin(DegToRad(B(n)));
 
-            double timeCorrection = 4 * (Longitude - StdMeridian) + eot;
+            double timeCorrection = 4 * (Lon - StdMeridian) + eot;
 
             double solarTime = localTime.Hour + localTime.Minute / 60.0 + timeCorrection / 60.0;
 
@@ -29,8 +31,8 @@ namespace SolarEnergyPOC.Services
 
             double altitude =
                 Math.Asin(
-                    Math.Sin(DegToRad(Latitude)) * Math.Sin(DegToRad(decl)) +
-                    Math.Cos(DegToRad(Latitude)) * Math.Cos(DegToRad(decl)) *
+                    Math.Sin(DegToRad(Lat)) * Math.Sin(DegToRad(decl)) +
+                    Math.Cos(DegToRad(Lat)) * Math.Cos(DegToRad(decl)) *
                     Math.Cos(DegToRad(hourAngle)));
 
             return RadToDeg(altitude);
