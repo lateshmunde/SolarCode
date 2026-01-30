@@ -15,11 +15,11 @@ namespace SolarEnergyPOC
         static void Main()
         {
             // Configuration
-            //string cityName = "Khavda"; // Hardcoded
-            //var location = new Location(23.8443, 69.7317);
+            string cityName = "Khavda"; // Hardcoded
+            var location = new Location(23.8443, 69.7317);
 
-            string cityName = "Chinchwad"; // Hardcoded
-            var location = new Location(18.618, 73.801);
+            //string cityName = "Chinchwad"; // Hardcoded
+            //var location = new Location(18.618, 73.801);
 
             //string cityName = "Pune"; // Hardcoded
             //var location = new Location(18.52, 73.88);
