@@ -4,64 +4,83 @@ using SolarEnergyPOC.Interfaces;
 
 public class ShadingLoss : IEnergyLoss
 {
-    public string Name => "Row-to-Row Shading (Area-Based)";
+    public string Name => "Row-to-Row Shading (Table-Based, Pitch-Driven)";
 
-    private readonly SiteLayoutParameters Layout; // criticalAltitudeRad 
-    private const double ElectricalExponent = 1.3; // bypass diode behavior
+    // Shadow-casting row (front row)
+    private readonly RowLayoutParameters FrontRow;
 
-    public ShadingLoss(SiteLayoutParameters layout)
+    // Shadow-receiving row (current row)
+    private readonly RowLayoutParameters CurrentRow;
+
+    // Empirical electrical non-linearity (bypass diode behaviour)
+    private const double ElectricalExponent = 1.3;
+
+    public ShadingLoss(
+        RowLayoutParameters frontRow,
+        RowLayoutParameters currentRow)
     {
-        Layout = layout;
+        FrontRow = frontRow;
+        CurrentRow = currentRow;
     }
+
     public void Apply(EnergyContext ctx, SolarPanel panel)
     {
         // No sun above horizon
         if (ctx.SunAltitudeDeg <= 0)
-        {
-            ctx.Poa = 0;
             return;
-        }
 
-        // Effective sun altitude (panel-specific slope)
-        double effectiveAltitudeDeg = ctx.SunAltitudeDeg - panel.GroundSlopeDeg;
+        // Effective sun altitude considering terrain slope
+        double effectiveAltitudeDeg =
+            ctx.SunAltitudeDeg - CurrentRow.RowSlopeDeg;
 
         if (effectiveAltitudeDeg <= 0)
-        {
-            ctx.Poa = 0;
             return;
-        }
 
-        double effectiveAltitudeRad = effectiveAltitudeDeg * Math.PI / 180.0;
+        double effectiveAltitudeRad =
+            effectiveAltitudeDeg * Math.PI / 180.0;
 
-        // Effective vertical height of panel
-        double panelHeightMeters = panel.EffectiveHeightMeters;
+        // TABLE GEOMETRY 
 
-        // Row spacing logic
-        double criticalAltitudeRad = Layout.CriticalSunAltitudeDeg * Math.PI / 180.0;
+        // Horizontal projection of table in row direction
+        double tableLength = panel.LengthMeters * Math.Cos(panel.TiltDeg * Math.PI / 180.0);
 
-        double rowSpacingMeters = panelHeightMeters / Math.Tan(criticalAltitudeRad);
+        // Vertical projection of table due to tilt
+        double tableVerticalHeight = panel.LengthMeters * Math.Sin(panel.TiltDeg * Math.PI / 180.0);
 
-        // Exact ray-projection shaded vertical height
-        // h_s = max(0, H - P * tan(alpha))
-        double shadedHeightMeters = panelHeightMeters - rowSpacingMeters * Math.Tan(effectiveAltitudeRad);
+        // Total shadow-casting height (top edge of front table)
+        double shadowCastingHeight = FrontRow.PanelMountedHeightMeters + tableVerticalHeight;
+        //PanelMountedHeightMeters -  lower edge mounting height from ground
+
+       // Clear spacing between tables (end-to-start)
+       double rowSpacingMeters = CurrentRow.AppliedPitchMeters - tableLength;
+
+        if (rowSpacingMeters <= 0)
+            return;
+
+        //SHADOW GEOMETRY
+
+        // Ray projection:
+        // shadedHeight = shadowCastingHeight − spacing * tan(sunAltitude)
+        double shadedHeight = shadowCastingHeight - rowSpacingMeters * Math.Tan(effectiveAltitudeRad);
 
         // No shading
-        if (shadedHeightMeters <= 0)
+        if (shadedHeight <= 0)
             return;
 
-        // Cap to full panel height
-        shadedHeightMeters = Math.Min(shadedHeightMeters, panelHeightMeters);
+        // Shadow cannot exceed table height
+        shadedHeight = Math.Min(shadedHeight, shadowCastingHeight);
 
-        // Vertical fraction shaded
-        double verticalShadingFraction = shadedHeightMeters / panelHeightMeters;
+        // Fraction of table height shaded
+        double verticalShadingFraction = shadedHeight / shadowCastingHeight;
 
-        // Area-based shading (triangular growth)
+        // Area-based shading assumption (triangular growth)
         double shadedAreaFraction = verticalShadingFraction * verticalShadingFraction;
 
-        // Electrical response (nonlinear, bypass-diode aware)
+        // Electrical impact (non-linear response)
         double powerLossFraction = Math.Pow(shadedAreaFraction, ElectricalExponent);
 
-        // Apply loss to POA
+        // Apply loss at POA level
+        // (future refinement: apply only to DNI)
         ctx.Poa *= (1 - powerLossFraction);
     }
 }

@@ -52,11 +52,13 @@ namespace SolarEnergyPOC
                 CriticalSunAltitudeDeg = criticalSunAltitudeDeg
             };
 
+            var frontRow = new RowLayoutParameters();
+            var currentRow = new RowLayoutParameters();
 
             // Loss Pipeline
             var losses = new List<IEnergyLoss>
             {
-                new ShadingLoss(layoutParameters),
+                new ShadingLoss(frontRow, currentRow),
                 new SoilingLoss(0.05),
                 new TemperatureLoss(),
                 new DcWiringLoss(0.02),
